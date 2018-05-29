@@ -8,12 +8,14 @@ import (
 	"github.com/axgle/mahonia"
 	"github.com/saintfish/chardet"
 	"io/ioutil"
+	//"log"
 	"net/http"
 	"os"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -118,46 +120,44 @@ func GetWebInfo(ip string, port int, timeout_set int) (string, error) {
 	req, err := http.NewRequest("GET", ip+":"+strconv.Itoa(port), nil)
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.139 Safari/537.36") //UA设定
 	res, err := client.Do(req)
-	if err != nil {
-		return result, err
-	}
-	data, err := ioutil.ReadAll(res.Body)
-	checkError(err)
-	body := strings.Replace(string(data), "\"", "'", -1) //将所有response中的"转义为',避免结果入库时存在争议
-	charset := TextDetector(data)
-	body = ConvertToString(body, charset, "utf-8")
+	if err == nil {
+		data, err := ioutil.ReadAll(res.Body)
+		checkError(err)
+		body := strings.Replace(string(data), "\"", "'", -1) //将所有response中的"转义为',避免结果入库时存在争议
+		charset := TextDetector(data)
+		body = ConvertToString(body, charset, "utf-8")
 
-	regex1 := regexp.MustCompile("<title>(.*?)</title>")
-	titles := regex1.FindAllStringSubmatch(body, -1)
+		regex1 := regexp.MustCompile("<title>(.*?)</title>")
+		titles := regex1.FindAllStringSubmatch(body, -1)
 
-	WebSeverValue := res.Header["Server"]
-	if len(WebSeverValue) < 1 {
-		websever = ""
-	} else {
-		websever = WebSeverValue[0]
-	}
+		WebSeverValue := res.Header["Server"]
+		if len(WebSeverValue) < 1 {
+			websever = ""
+		} else {
+			websever = WebSeverValue[0]
+		}
 
-	if len(titles) < 1 {
-		//未取得Title字段
-		result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"\",\""  + body + "\""
-	} else {
-		result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"" + titles[0][1] + "\",\""  + body + "\""
+		if len(titles) < 1 {
+			//未取得Title字段
+			result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"\",\"" // + body + "\""
+		} else {
+			result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"" + titles[0][1] + "\",\"" // + body + "\""
+		}
 	}
 
 	return result, err
 }
 
-func run(ips []string, tnum int, task int, ch chan int) {
-	for i := tnum*task + 1; i < (tnum*task)+task; i++ {
+func run(ips []string, tnum int, task int, wg *sync.WaitGroup) {
+	for i := tnum*task + 1; i <= (tnum*task)+task; i++ {
 		ips[i-1] = strings.TrimSpace(ips[i-1])
-		//fmt.Println(ips[i-1] + " Scan")
+		//fmt.Println(strconv.Itoa(i) + " " + ips[i-1] + " Scan")
 		result, err := GetWebInfo(ips[i-1], port, timeout)
 		if err == nil {
 			fmt.Println(result)
 		}
-
+		wg.Done()
 	}
-	ch <- 1
 }
 
 func checkError(err error) {
@@ -181,20 +181,21 @@ func main() {
 			ips = strings.Split(string(f), "\n")
 		}
 		if beginip != "" && endip != "" {
-			for i := StringIpToInt(beginip); i <= StringIpToInt(endip); i++ {
+			for i := StringIpToInt(beginip); i < StringIpToInt(endip); i++ {
 				ips = append(ips, IpIntToString(i))
 			}
 		}
 
 		lens := len(ips)
+		//fmt.Println(lens)
 		//每线程任务数
 		task := lens / thread
-		ch := make(chan int)
+		wg := sync.WaitGroup{}
+		wg.Add(lens)
 		for i := 0; i < thread; i++ {
-			go run(ips, i, task, ch)
+			go run(ips, i, task, &wg)
 		}
-		<-ch
-
+		wg.Wait()
 		//GetWebInfo("http://stock.10jqka.com.cn", port, 2)
 	}
 }
