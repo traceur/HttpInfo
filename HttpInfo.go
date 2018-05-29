@@ -139,9 +139,9 @@ func GetWebInfo(ip string, port int, timeout_set int) (string, error) {
 
 		if len(titles) < 1 {
 			//未取得Title字段
-			result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"\",\"" // + body + "\""
+			result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"\",\""  + body + "\""
 		} else {
-			result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"" + titles[0][1] + "\",\"" // + body + "\""
+			result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"" + titles[0][1] + "\",\""  + body + "\""
 		}
 	}
 
