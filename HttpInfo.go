@@ -9,6 +9,7 @@ import (
 	"github.com/saintfish/chardet"
 	"io/ioutil"
 	//"log"
+	//"encoding/base64"
 	"net/http"
 	"os"
 	"regexp"
@@ -124,6 +125,7 @@ func GetWebInfo(ip string, port int, timeout_set int) (string, error) {
 		data, err := ioutil.ReadAll(res.Body)
 		checkError(err)
 		body := strings.Replace(string(data), "\"", "'", -1) //将所有response中的"转义为',避免结果入库时存在争议
+		//body_base64 := base64.StdEncoding.EncodeToString([]byte(data))
 		charset := TextDetector(data)
 		body = ConvertToString(body, charset, "utf-8")
 
@@ -139,9 +141,11 @@ func GetWebInfo(ip string, port int, timeout_set int) (string, error) {
 
 		if len(titles) < 1 {
 			//未取得Title字段
-			result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"\",\""  + body + "\""
+			//result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"\",\"" + body_base64 + "\""
+			result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"\",\"" + body + "\""
 		} else {
-			result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"" + titles[0][1] + "\",\""  + body + "\""
+			//result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"" + titles[0][1] + "\",\"" + body_base64 + "\""
+			result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"" + titles[0][1] + "\",\"" + body + "\""
 		}
 	}
 
@@ -156,8 +160,8 @@ func run(ips []string, tnum int, task int, wg *sync.WaitGroup) {
 		if err == nil {
 			fmt.Println(result)
 		}
-		wg.Done()
 	}
+	wg.Done()
 }
 
 func checkError(err error) {
@@ -171,6 +175,7 @@ func main() {
 	if len(args) < 2 {
 		flag.Usage()
 	} else {
+		//t1 := time.Now()
 		runtime.GOMAXPROCS(runtime.NumCPU())
 		var ips []string
 		if file != "" {
@@ -191,11 +196,18 @@ func main() {
 		//每线程任务数
 		task := lens / thread
 		wg := sync.WaitGroup{}
-		wg.Add(lens)
+		wg.Add(thread)
+
 		for i := 0; i < thread; i++ {
+			//fmt.Println("ok")
 			go run(ips, i, task, &wg)
 		}
+		//		elapsed := time.Since(t1)
+		//		fmt.Println("Timed: ", elapsed)
+		//		wg.Done()
+
 		wg.Wait()
+
 		//GetWebInfo("http://stock.10jqka.com.cn", port, 2)
 	}
 }
