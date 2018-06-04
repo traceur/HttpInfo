@@ -9,7 +9,7 @@ import (
 	"github.com/saintfish/chardet"
 	"io/ioutil"
 	//"log"
-	//"encoding/base64"
+	"encoding/base64"
 	"net/http"
 	"os"
 	"regexp"
@@ -109,7 +109,12 @@ func GetWebInfo(ip string, port int, timeout_set int) (string, error) {
 		domain = strings.Replace(strings.Split(ip, "//")[1], "/", "", -1)
 	} else {
 		domain = strings.Replace(ip, "/", "", 1)
-		ip = "http://" + ip
+		if port == 443 {
+			ip = "https://" + ip
+		} else {
+			ip = "http://" + ip
+		}
+
 	}
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //跳过证书校验
@@ -124,10 +129,10 @@ func GetWebInfo(ip string, port int, timeout_set int) (string, error) {
 	if err == nil {
 		data, err := ioutil.ReadAll(res.Body)
 		checkError(err)
-		body := strings.Replace(string(data), "\"", "'", -1) //将所有response中的"转义为',避免结果入库时存在争议
-		//body_base64 := base64.StdEncoding.EncodeToString([]byte(data))
+		//body := strings.Replace(string(data), "\"", "'", -1) //将所有response中的"转义为',避免结果入库时存在争议
+		body_base64 := base64.StdEncoding.EncodeToString([]byte(data))
 		charset := TextDetector(data)
-		body = ConvertToString(body, charset, "utf-8")
+		body := ConvertToString(string(data), charset, "utf-8")
 
 		regex1 := regexp.MustCompile("<title>(.*?)</title>")
 		titles := regex1.FindAllStringSubmatch(body, -1)
@@ -141,11 +146,11 @@ func GetWebInfo(ip string, port int, timeout_set int) (string, error) {
 
 		if len(titles) < 1 {
 			//未取得Title字段
-			//result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"\",\"" + body_base64 + "\""
-			result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"\",\"" + body + "\""
+			result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"\",\"" + body_base64 + "\""
+			//result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"\",\"" + body + "\""
 		} else {
-			//result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"" + titles[0][1] + "\",\"" + body_base64 + "\""
-			result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"" + titles[0][1] + "\",\"" + body + "\""
+			result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"" + titles[0][1] + "\",\"" + body_base64 + "\""
+			//result = "\"" + domain + "\",\"" + strconv.Itoa(port) + "\",\"" + websever + "\",\"" + titles[0][1] + "\",\"" + body + "\""
 		}
 	}
 
